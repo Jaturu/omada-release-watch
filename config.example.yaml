@@ -1,0 +1,28 @@
+# Omada Release Watch configuration
+
+catalog:
+  # Directory holding catalog.sigstore.json and catalog-refresh.sigstore.json.
+  dir: .
+
+  # Signature checking. Turning this off is the supported way to run
+  # without network access, and it is reported on every run.
+  verify: true
+
+  # Report a catalog older than this many days. An old catalog carries a
+  # real signature, so verification says nothing about its age.
+  max_age_days: 90
+
+query:
+  latest: false
+  version_prefix:
+  kind:
+  platform:
+  package:
+  archive:
+
+output:
+  json: false
+  progress: true
+
+fetch:
+  output_dir: downloads

@@ -1,0 +1,7 @@
+# Narrow on purpose. The wider default set flags the bare excepts at the
+# verification boundary and the concatenated EXPECTED_IDENTITIES literal the
+# crawler parses with ast, both of which are deliberate.
+
+[lint]
+select = ["E", "F", "B", "I"]
+ignore = ["E501"]

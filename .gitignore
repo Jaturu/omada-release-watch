@@ -1,0 +1,36 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+.envrc
+
+# Test and tooling cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local scratch and backups
+*.bak
+*.tmp
+refactor-scratch/
+
+# macOS
+.DS_Store
+
+# Runtime output
+/tmp/
+downloads/
+
+# Local runtime state: generated/personal, not source
+config.yaml
+/catalog-refresh.sigstore.json
+
+# Local CA certs
+certs/

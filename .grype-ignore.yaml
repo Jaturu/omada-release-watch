@@ -1,0 +1,9 @@
+ignore:
+  # Python stdlib tarfile CVEs, fixed only in 3.15 pre-releases with no 3.13
+  # backport. This app never imports tarfile, so both are unreachable.
+  - vulnerability: CVE-2026-11940
+  - vulnerability: CVE-2026-11972
+
+  # CPython CVE, fixed in 3.15.0 with no 3.13.x backport. Drop when a patched
+  # 3.13 reaches the base image.
+  - vulnerability: CVE-2026-15308

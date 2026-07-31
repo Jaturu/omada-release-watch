@@ -1,0 +1,68 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor the project claims to support, and the version the image
+        # is built on.
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet --require-hashes -r requirements.txt -r requirements-dev.txt
+
+      - name: Run tests
+        run: |
+          pytest -q --cov=omada_release_watch --cov-branch \
+            --cov-report=term-missing --cov-fail-under=90
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: python -m pip install --quiet --require-hashes -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: '3.13'
+
+      # Its own lockfile, so the audit tool's dependencies stay out of the
+      # environment the tests run in.
+      - name: Install pip-audit
+        run: python -m pip install --quiet --require-hashes -r requirements-audit.txt
+
+      # Advisories arrive independently of any commit here, so this fails on a
+      # day nothing changed. That is the point.
+      - name: Audit dependencies
+        run: pip-audit -r requirements.txt -r requirements-dev.txt

@@ -1,0 +1,1 @@
+"""Omada release watcher package."""
