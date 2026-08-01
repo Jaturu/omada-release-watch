@@ -128,6 +128,17 @@ def signer_identity(bundle: Bundle) -> str | None:
     return uris[0] if uris else None
 
 
+def signer_policy() -> policy.AnyOf:
+    """The policy `load_bytes` verifies against.
+
+    Named so a transition entry can be exercised against the real policy
+    rather than against a stand-in verifier.
+    """
+    return policy.AnyOf(
+        [policy.Identity(identity=i, issuer=EXPECTED_ISSUER) for i in EXPECTED_IDENTITIES]
+    )
+
+
 def load(
     path: str | Path,
     verify: bool = True,
@@ -180,9 +191,7 @@ def load_bytes(
         return LoadResult(Outcome.MALFORMED, detail=f"{type(exc).__name__}: {exc}")
 
     signer = signer_identity(parsed)
-    accepted = policy.AnyOf(
-        [policy.Identity(identity=i, issuer=EXPECTED_ISSUER) for i in EXPECTED_IDENTITIES]
-    )
+    accepted = signer_policy()
 
     try:
         verifier = (verifier_factory or Verifier.production)()

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
+from sigstore.errors import VerificationError
 from sigstore.verify import policy
 
 from omada_release_watch import bundle
@@ -327,6 +328,44 @@ def test_pinning_one_identity_offers_exactly_that_one(tmp_path, monkeypatch):
     seen, _ = _recorded_identities(monkeypatch, (only,), tmp_path)
 
     assert [identity for identity, _ in seen] == [only]
+
+
+# --- the transition, against the real policy ------------------------------------
+
+def _fixture_certificate():
+    from sigstore.models import Bundle
+
+    return Bundle.from_json(_fixture_bytes()).signing_certificate
+
+
+def _fixture_signer() -> str:
+    from sigstore.models import Bundle
+
+    return bundle.signer_identity(Bundle.from_json(_fixture_bytes()))
+
+
+def test_a_transition_entry_is_accepted_in_either_position(monkeypatch):
+    """The tests above assert which identities are handed over. This one runs
+    sigstore's own policy against a real certificate, which is what actually
+    decides whether a client mid-transition accepts the catalog."""
+    signing = _fixture_signer()
+    retired = signing.replace("signing-spike.yml", "retired.yml")
+    certificate = _fixture_certificate()
+
+    for identities in ((retired, signing), (signing, retired)):
+        monkeypatch.setattr(bundle, "EXPECTED_IDENTITIES", identities)
+
+        bundle.signer_policy().verify(certificate)  # raises if refused
+
+
+def test_a_policy_missing_the_signing_identity_refuses_the_certificate(monkeypatch):
+    """Without this, the test above would also pass against a policy that
+    accepted every certificate."""
+    monkeypatch.setattr(bundle, "EXPECTED_IDENTITIES", (_fixture_signer().replace(
+        "signing-spike.yml", "retired.yml"),))
+
+    with pytest.raises(VerificationError):
+        bundle.signer_policy().verify(_fixture_certificate())
 
 
 def test_signer_identity_reads_the_uri_out_of_the_certificate():
