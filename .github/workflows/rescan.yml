@@ -153,11 +153,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- docs/security-status.md; then
+          # Stage first. git diff compares tracked files only, so on the run
+          # that creates the page it reports no change and skips the commit.
+          git add docs/security-status.md
+          if git diff --cached --quiet -- docs/security-status.md; then
             echo "No change since the last re-scan."
             exit 0
           fi
-          git add docs/security-status.md
           git commit -m "Update security status for ${TAG}"
           git push
 
