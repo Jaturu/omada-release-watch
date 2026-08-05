@@ -7,8 +7,9 @@ name: image
 on:
   push:
     branches: [main]
-    # The crawler commits this twice a day and it is not in the image.
-    paths-ignore: [catalog.sigstore.json]
+    # The crawler commits the catalog twice a day and the rescan workflow
+    # commits the status page. Neither is in the image.
+    paths-ignore: [catalog.sigstore.json, docs/security-status.md]
   workflow_dispatch: {}
 
 # Least privilege at the top, widened only on the job that publishes.
@@ -254,6 +255,13 @@ jobs:
           pattern: digests-*
           merge-multiple: true
 
+      - name: Download scan reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          path: /tmp/reports
+          pattern: reports-*
+          merge-multiple: true
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4.2.0
 
@@ -393,3 +401,33 @@ jobs:
       - name: Sign GHCR mirror
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: cosign sign --yes --recursive ${{ env.GHCR_IMAGE }}@${{ steps.manifest.outputs.digest }}
+
+      # The readable copy of what the gates saw. Run artifacts expire in a day.
+      # Non-blocking: the release is already promoted and signed by here, and
+      # the tag number is claimed, so a retry would build a different release.
+      - name: Publish the release report
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.rel.outputs.tag }}
+          INDEX: ${{ steps.manifest.outputs.digest }}
+        run: |
+          # Platforms come from the reports actually downloaded, so this stays
+          # in step with the build matrix.
+          set --
+          for f in /tmp/reports/sbom.cyclonedx.*.json; do
+            slug="$(basename "$f" .json)"; slug="${slug#sbom.cyclonedx.}"
+            digest="$(crane digest --platform "${slug/-//}" "${{ env.IMAGE }}@${INDEX}")"
+            set -- "$@" --platform "${slug}=${digest}"
+          done
+          # digests-* uploads with if-no-files-found: error, so its count is
+          # the number of platforms that actually built.
+          expected="$(find /tmp/digests -type f | wc -l | tr -d ' ')"
+          python3 -m scripts.render_release_report \
+            --tag "$TAG" --index-digest "$INDEX" \
+            --reports-dir /tmp/reports "$@" \
+            --expect-platforms "$expected" \
+            --output /tmp/release-body.md
+          gh release create "$TAG" --title "$TAG" \
+            --notes-file /tmp/release-body.md /tmp/reports/*.json

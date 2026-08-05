@@ -17,7 +17,9 @@ Each release carries four kinds of provenance material:
 | Signature | Sigstore bundle | OCI referrer on the manifest and on each platform image |
 | SBOM attestation | in-toto, BuildKit | Attestation manifest inside the image index |
 | Provenance attestation | in-toto SLSA, BuildKit | Attestation manifest inside the image index |
-| SBOM and scan reports | CycloneDX and raw JSON | OCI referrer on each platform image |
+| SBOM and scan reports | CycloneDX and raw JSON | OCI referrer on each platform image, and as GitHub Release assets |
+
+Every release also has a GitHub Release carrying a rendered summary of the scans and the same report files as assets. See [Reading a release without registry tooling](#reading-a-release-without-registry-tooling).
 
 Two SBOMs exist per release and that is intentional. The BuildKit attestation is what Docker's own tooling reads. The CycloneDX file attached with ORAS is the one the vulnerability gates were evaluated against, published alongside the Grype and Trivy reports that share its format.
 
@@ -160,6 +162,32 @@ Each platform digest carries three files, named for the platform they describe:
 | `sbom.cyclonedx.<platform>.json` | CycloneDX SBOM |
 | `grype-report.<platform>.json` | Grype findings |
 | `trivy-report.<platform>.json` | Trivy findings |
+
+## Is the current release safe to run today
+
+[`security-status.md`](security-status.md) answers that one, and it is the page to read if you are deciding whether to pull the image. A scheduled workflow rewrites it weekly, on Mondays, and it can be run on demand from the Actions tab. It opens with a single verdict line, then lists every finding against the current release per platform, followed by the suppressions and whether a fix has appeared for any of them.
+
+It is regenerated rather than accumulated, so the file's git history is the record of when a finding appeared or went away.
+
+The re-scan does not rebuild or pull the image. It reads the CycloneDX SBOM already attached to each published platform digest and runs Grype and Trivy against that, using the same `.grype-ignore.yaml` the release gates used. Scanning the SBOM covers the same targets as scanning the image, both the Alpine packages and the Python packages.
+
+A High or Critical finding fails the scheduled run after the page is committed, so the alarm is visible in the Actions tab and the page is already updated when you go looking.
+
+Everything under Releases is the opposite: a snapshot frozen at build time that never changes. Use those to answer what was known when a given version shipped, and this page to answer what is known now.
+
+## Reading a release without registry tooling
+
+The commands above are the authoritative path, because they read what is bound to the digest. For a quick look with nothing installed, each release also has a GitHub Release page:
+
+```
+https://github.com/Jaturu/omada-release-watch/releases/tag/v<VERSION>-<build>
+```
+
+The body renders the component counts and the scan results per platform, including anything suppressed by `.grype-ignore.yaml` and the reason recorded for it. The six report files are attached as assets, two platforms by SBOM, Grype and Trivy.
+
+Neither this page nor the registry attachments are signed. `cosign sign --recursive` covers the manifest list and the platform images inside it. The ORAS attachments are separate manifests that name a platform image as their subject, and nothing signs them, so `oras discover` on an SBOM referrer returns no signature. The signature establishes that the image is the one this repository's workflow built. It says nothing about the SBOM or the scan reports beyond the fact that the same run produced them.
+
+Findings are also a snapshot. They record what the scanners knew when the release was built, and the body states both the scan time and the vulnerability database date so that age is visible. An advisory published later against a package in an older release will not appear on that release's page.
 
 ## Read the BuildKit attestations
 

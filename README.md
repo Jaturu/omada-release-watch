@@ -245,6 +245,7 @@ Detailed documentation is available in the `docs/` directory:
 - [Catalog Verification](docs/verification.md)
 - [Fetch Workflow](docs/fetch.md)
 - [Supply Chain](docs/supply-chain.md)
+- [Security Status](docs/security-status.md), findings against the current release, re-scanned weekly
 - [Architecture](docs/architecture.md)
 
 ---
