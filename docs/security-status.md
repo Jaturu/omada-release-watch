@@ -4,7 +4,7 @@ No High or Critical findings. 18 lower-severity finding(s) recorded below.
 
 Release `v1.0.0-6`, published as `docker.io/jaturu/omada-release-watch:v1.0.0-6` and `docker.io/jaturu/omada-release-watch:latest`.
 Manifest list `sha256:0d199f6e24425908bb786711596b81b2ae5e60278ad0cd815b8b740a9a5b102e`.
-Re-scanned 2026-08-05 11:31 UTC against a vulnerability database built 2026-08-05 07:04 UTC.
+Re-scanned 2026-08-10 08:03 UTC against a vulnerability database built 2026-08-10 06:39 UTC.
 
 This page is regenerated on a schedule from the CycloneDX SBOM attached to the published image, so it reflects what the scanners know now rather than what they knew at build time. It is generated output and is not signed. The per-release pages under Releases are the build-time snapshots and do not change.
 
