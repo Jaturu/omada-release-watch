@@ -9,7 +9,9 @@ RUN addgroup -S appgroup \
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+# pip is not needed at runtime, and its vendored packages carry advisories.
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
+    && pip uninstall --yes pip
 
 COPY omada_release_watch /app/omada_release_watch
 COPY omada-release-watch.py /app/omada-release-watch.py
