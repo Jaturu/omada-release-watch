@@ -1,5 +1,8 @@
 FROM python:3.13-alpine
 
+# The base image lags Alpine's security updates.
+RUN apk upgrade --no-cache
+
 LABEL org.opencontainers.image.title="omada-release-watch"
 LABEL org.opencontainers.image.description="Queries a catalog of TP-Link Omada Controller releases and fetches artifacts."
 
