@@ -1,5 +1,1 @@
-ignore:
-  # OpenSSL QUIC listener DoS. This image runs a CLI HTTP client and never
-  # listens, so the path is unreachable. Alpine 3.24 ships no fixed openssl.
-  - vulnerability: CVE-2026-14456
-    reason: "no QUIC listener in this image, so unreachable. Tracked in #9"
+ignore: []
