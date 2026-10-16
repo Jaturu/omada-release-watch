@@ -1,5 +1,7 @@
 # Omada Release Watch
 
+[![Security status](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Jaturu/omada-release-watch/main/docs/security-status.json)](docs/security-status.md)
+
 This project started as a personal experiment. It was an academic exercise in using AI coding assistance on something real rather than a toy problem. I was tired of manually checking for new releases and I was concerned that TP-Link didn't publish hashes to verify against. I built this tool to do both things. It is complete overkill for the problems it solves, but exploring how far modern AI tooling can go was the point.
 
 Omada Release Watch is a command line utility for querying TP-Link Omada Software Controller releases and fetching their artifacts.
@@ -42,7 +44,9 @@ Release discovery is deliberately not part of this tool. A single scheduled craw
   - package
   - archive
   - release kind
+- List the whole catalog, newest first, with the recorded SHA256 of every artifact.
 - Fetch exactly one selected artifact, checked against the hash the catalog records for it. When the catalog records none, the result says so rather than presenting a self-computed hash as a verified one.
+- Record each fetched artifact's SHA256 in a `SHA256SUMS` file beside it, in the format `shasum -c` reads.
 - Verify the catalog's signature on every run, reporting anything that does not check out.
 - Refuse to fetch when catalog verification fails, unless told to proceed.
 - Machine-readable JSON output.
@@ -82,7 +86,7 @@ cp config.example.yaml config.yaml
 
 `config.yaml` is local runtime state, gitignored and not tracked.
 
-A clone comes with the published catalog, so there is nothing to download before the first query. `--refresh` replaces it when you want a newer one.
+A clone comes with the published catalog, so there is nothing to download before the first query. `--refresh` fetches a newer one and writes it beside the published copy, and whichever carries the newer signed date answers queries.
 
 ---
 
@@ -141,6 +145,8 @@ Fetch from the catalog already in place, without updating it first:
 ```bash
 ./omada-release-watch.py --fetch --latest --kind stable --platform linux --package tgz
 ```
+
+Fetched files land in `downloads/`, and each one's SHA256 is appended to `downloads/SHA256SUMS`, so the directory can be re-checked later with `shasum -a 256 -c SHA256SUMS`.
 
 ---
 

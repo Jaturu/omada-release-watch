@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from scripts.render_release_report import PlatformSummary, summarize_platform
-from scripts.rescan_status import main, render_status, verdict
+from scripts.rescan_status import badge, main, render_status, verdict
 
 # --- The verdict: the one line someone reads before deciding to run it --------
 
@@ -231,3 +231,56 @@ def test_summarize_platform_still_reads_the_fixture(report_dir):
     )
     # Every suppression carries a fix version today, all on the 3.15 line.
     assert all(s["fix"] for s in summary.grype["suppressed"])
+
+
+# --- The badge: the verdict as a shields.io endpoint for the README ------------
+
+
+def test_badge_is_green_and_dated_when_nothing_is_found():
+    out = badge([_summary()])
+    assert out == {
+        "schemaVersion": 1,
+        "label": "scanned 2026-08-05",
+        "message": "no findings",
+        "color": "brightgreen",
+    }
+
+
+def test_badge_counts_lower_severity_findings_in_green():
+    out = badge([_summary(grype=_grype({"Medium": 8, "Low": 1}))])
+    assert out["message"] == "no High or Critical, 9 lower"
+    assert out["color"] == "brightgreen"
+
+
+def test_badge_turns_red_on_an_actionable_finding():
+    out = badge([_summary(grype=_grype({"High": 2, "Medium": 1}))])
+    assert out["message"] == "2 High or Critical, action needed"
+    assert out["color"] == "red"
+
+
+def test_badge_falls_back_to_a_plain_label_without_a_scan_date():
+    grype = _grype({})
+    grype["scanned"] = ""
+    assert badge([_summary(grype=grype)])["label"] == "security status"
+
+
+def test_main_writes_the_badge_beside_the_page(report_dir, tmp_path):
+    out = tmp_path / "status.md"
+    badge_path = tmp_path / "status.json"
+    rc = main(
+        [
+            "--image", "docker.io/jaturu/omada-release-watch",
+            "--tag", "v1.0.0-4",
+            "--index-digest", "sha256:index",
+            "--reports-dir", str(report_dir),
+            "--platform", "linux-amd64=sha256:amd",
+            "--expect-platforms", "1",
+            "--output", str(out),
+            "--badge", str(badge_path),
+        ]
+    )
+    assert rc == 0
+    data = json.loads(badge_path.read_text())
+    assert data["schemaVersion"] == 1
+    assert data["message"].startswith("no High or Critical")
+    assert data["color"] == "brightgreen"

@@ -9,7 +9,7 @@ on:
     branches: [main]
     # The crawler commits the catalog twice a day and the rescan workflow
     # commits the status page. Neither is in the image.
-    paths-ignore: [catalog.sigstore.json, docs/security-status.md]
+    paths-ignore: [catalog.sigstore.json, docs/security-status.md, docs/security-status.json]
   workflow_dispatch: {}
 
 # Least privilege at the top, widened only on the job that publishes.
