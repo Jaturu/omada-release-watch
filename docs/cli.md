@@ -26,7 +26,7 @@ Running with no options reports where the catalog is, when it was published, how
 
 ## Refresh
 
-Download the published catalog, verify it, and write it to the catalog path.
+Download the published catalog, verify it, and write it as `catalog-refresh.sigstore.json` in the working directory.
 
 ```bash
 ./omada-release-watch.py --refresh
@@ -83,7 +83,7 @@ Typical usage:
 
 ## JSON Output
 
-Emit machine-readable JSON. Under `--json`, stdout is only JSON: queries print an object carrying `verification`, `signer` and `records` (an empty array when nothing matches), status prints an object carrying the tool version, a fetch prints the record it fetched, and errors print an `{"error": ...}` object. Progress messages are always suppressed.
+Emit machine-readable JSON. Under `--json`, stdout is only JSON: queries print an object carrying `verification`, `signer` and `records` (an empty array when nothing matches), status prints an object carrying the tool version, catalog path, verification outcome, signer, updated date and entry count, a fetch prints the record it fetched, and errors print an `{"error": ...}` object. Progress messages are always suppressed.
 
 Every document names what the catalog verified as, so a caller reading stdout alone can tell a verified run from one that was not. `verification` holds the outcome, and `signer` the identity that signed it, or `null`. A fetch document adds `sha256_verified`, which is `false` when the catalog recorded no hash for that entry and the digest was therefore compared with nothing. It also carries `path`, the absolute location of the artifact, and `checksums`, the `SHA256SUMS` file the digest was recorded in.
 

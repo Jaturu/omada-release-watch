@@ -10,7 +10,7 @@ Fetch downloads a selected Omada release artifact, computes its SHA256 digest, a
 
 A fetch also refuses to write to the configuration file or either catalog copy, whatever the catalog calls the entry. Those are the files the tool reads to decide what to trust, and an artifact written over one of them lands owned by whoever ran the command, which is the shape those checks look for.
 
-A filename from the catalog has to match an allowlist before anything is written. The vendor uses letters, digits, spaces, dots, underscores, hyphens, parentheses and brackets, and nothing else is accepted. A denylist of path separators would let through drive-relative Windows paths, control characters and terminal escape sequences, all of which reach the terminal when a record is printed.
+A filename from the catalog has to match an allowlist before anything is written. The vendor uses letters, digits, spaces, dots, underscores, hyphens, plus signs, parentheses and brackets, and nothing else is accepted. A denylist of path separators would let through drive-relative Windows paths, control characters and terminal escape sequences, all of which reach the terminal when a record is printed.
 
 Fetch is intentionally explicit.
 

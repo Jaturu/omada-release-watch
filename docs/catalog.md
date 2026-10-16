@@ -55,7 +55,8 @@ The catalog is stored as JSON.
       "download_url": "...",
       "source_url": "...",
       "title": "...",
-      "sha256": "..."
+      "sha256": "...",
+      "sha256_recorded_at": "..."
     }
   },
   "schema": 1,
@@ -107,7 +108,7 @@ This preserves the vendor filename while ensuring the URL can be requested safel
 
 # SHA256
 
-An entry may carry the SHA256 of its artifact, recorded by the publisher when the catalog was built.
+An entry may carry the SHA256 of its artifact, recorded by the publisher when the catalog was built. `sha256_recorded_at` says when that happened.
 
 SHA256 is the authoritative identity of the artifact itself, and fetch compares against it: a local file whose content no longer matches is reported rather than overwritten.
 
@@ -128,4 +129,3 @@ The tool separates the installable package from the outer archive.
 | `.tar.gz` | tgz | none |
 | `.tar.gz.zip` | tgz | zip |
 | Windows ZIP installer | exe | zip |
-| `.bin` | bin | none |

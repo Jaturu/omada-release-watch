@@ -55,7 +55,7 @@ The consequence for this project is that it consumes release data rather than pr
 | bundle.py | Read and verify the signed catalog bundle |
 | refresh.py | Download a published catalog and accept it only if it checks out |
 | catalog.py | Answer queries about catalog data |
-| fetch.py | Download and verify exactly one artifact |
+| fetch.py | Download and verify exactly one artifact, recording its hash beside it |
 | cli.py | Command line interface and presentation |
 | config.py | Configuration loading |
 | text.py | Filename safety and string helpers |
@@ -85,7 +85,7 @@ Nothing refreshes on a timer, in the background, or as a side effect of a query.
 
 The catalog arrives inside a signed bundle, so the tool never writes to it. Recording anything back into it, such as the hash of an artifact just downloaded, would invalidate the signature and make the next run report tampering.
 
-This is a change from earlier versions, which wrote observed hashes back into the catalog. For any entry the publisher has already hashed, nothing is lost: the recorded hash travels in the catalog and the mismatch check in `fetch.py` still refuses to overwrite a local file whose content changed.
+This is a change from earlier versions, which wrote observed hashes back into the catalog. For any entry the publisher has already hashed, nothing is lost: the recorded hash travels in the catalog and the mismatch check in `fetch.py` still refuses to overwrite a local file whose content changed. The hash of a fetched artifact is recorded in `SHA256SUMS` beside it instead, see [Fetch Workflow](fetch.md).
 
 ---
 
@@ -149,7 +149,6 @@ A catalog that fails verification is reported loudly and still answers queries. 
 
 The following ideas have been intentionally postponed.
 
-- Published checksum discovery
-- Accepting more than one pinned signing identity, which a change to the crawler workflow's name or branch would require
+- Checking artifacts against vendor-published checksums, should TP-Link ever publish any
 
 Artifact mirroring was considered during development but intentionally abandoned in favor of on-demand acquisition.

@@ -69,7 +69,7 @@ Rehearse it on a throwaway repository first. A signature can only be produced by
 |---------|---------|---------------|
 | verified | Signature, contents, and signer all check out | Silent |
 | altered | Contents no longer match the signature over them | Reports, keeps working |
-| unexpected signer | Validly signed, but not by this project | Reports, keeps working |
+| unexpected-signer | Validly signed, but not by this project | Reports, keeps working |
 | malformed | The file is not a readable catalog bundle | Stops |
 | unverifiable | Verification could not run at all | Reports, keeps working |
 | missing | There is no catalog at the configured path | Stops |
@@ -77,7 +77,7 @@ Rehearse it on a throwaway repository first. A signature can only be produced by
 
 Two distinctions in that table are deliberate.
 
-`altered` and `unexpected signer` are separate because they call for different responses. Altered usually means you or your own tooling changed the file, and refetching fixes it. Unexpected signer means a correctly signed catalog was produced by somebody else, which is what substituting a hostile catalog looks like.
+`altered` and `unexpected-signer` are separate because they call for different responses. Altered usually means you or your own tooling changed the file, and refetching fixes it. Unexpected signer means a correctly signed catalog was produced by somebody else, which is what substituting a hostile catalog looks like.
 
 `unverifiable` is separate from any failure. Not knowing whether a catalog is good is not the same as knowing it is bad, and the two should not read alike.
 

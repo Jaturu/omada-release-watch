@@ -12,6 +12,8 @@ This directory contains detailed documentation for Omada Release Watch.
 ## Reference
 
 - [Catalog Format](catalog.md)
+- [Supply Chain](supply-chain.md)
+- [Security Status](security-status.md)
 
 ## Architecture
 

@@ -116,13 +116,13 @@ Grype records suppressed findings in its report under `ignoredMatches`, along wi
 Always work from digests. Tags are mutable and can be moved. A digest and its signature are bound together.
 
 ```bash
-crane digest docker.io/jaturu/omada-release-watch:v0.1.0-1
+crane digest docker.io/jaturu/omada-release-watch:v1.0.0-9
 ```
 
 For the platform-specific digest, which is what attachments hang off:
 
 ```bash
-crane digest --platform linux/amd64 docker.io/jaturu/omada-release-watch:v0.1.0-1
+crane digest --platform linux/amd64 docker.io/jaturu/omada-release-watch:v1.0.0-9
 ```
 
 ## Verify the signature
@@ -192,12 +192,12 @@ Findings are also a snapshot. They record what the scanners knew when the releas
 ## Read the BuildKit attestations
 
 ```bash
-docker buildx imagetools inspect docker.io/jaturu/omada-release-watch:v0.1.0-1 \
+docker buildx imagetools inspect docker.io/jaturu/omada-release-watch:v1.0.0-9 \
   --format '{{ json .SBOM }}'
 ```
 
 ```bash
-docker buildx imagetools inspect docker.io/jaturu/omada-release-watch:v0.1.0-1 \
+docker buildx imagetools inspect docker.io/jaturu/omada-release-watch:v1.0.0-9 \
   --format '{{ json .Provenance }}'
 ```
 
@@ -234,7 +234,7 @@ The regexp form tolerates the workflow file being renamed. Pin the exact identit
 ## In a CI step
 
 ```bash
-DIGEST="$(crane digest --platform linux/amd64 docker.io/jaturu/omada-release-watch:v0.1.0-1)"
+DIGEST="$(crane digest --platform linux/amd64 docker.io/jaturu/omada-release-watch:v1.0.0-9)"
 
 COSIGN_EXPERIMENTAL=1 cosign verify \
   --certificate-identity-regexp 'https://github.com/Jaturu/omada-release-watch/\.github/workflows/.*' \
@@ -257,7 +257,7 @@ The controller must be able to read OCI referrers, since the signature is stored
 For tools that evaluate SBOM presence, such as Docker Scout, use the BuildKit attestations. They are inside the image index and require no extra fetch:
 
 ```bash
-docker scout attestation list docker.io/jaturu/omada-release-watch:v0.1.0-1
+docker scout attestation list docker.io/jaturu/omada-release-watch:v1.0.0-9
 ```
 
 For tools that consume CycloneDX directly, pull the attached file from the platform digest as shown above.
