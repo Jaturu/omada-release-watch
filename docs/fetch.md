@@ -108,6 +108,14 @@ fetch:
 
 If a local file already exists, Omada Release Watch can compute its SHA256 and compare it with catalog metadata.
 
+Every fetch also records the digest in `SHA256SUMS` in the same directory, one `sha256  filename` line per artifact. The file is created on the first fetch and appended to afterwards, and a line already present is not repeated. It is in the format the standard tools read, so the whole directory can be re-checked later:
+
+```bash
+cd downloads && shasum -a 256 -c SHA256SUMS
+```
+
+The catalog is refused the name `SHA256SUMS`, so an artifact can never land on top of it.
+
 ---
 
 # SHA256

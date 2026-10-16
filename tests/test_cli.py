@@ -1392,3 +1392,29 @@ def test_main_fetch_logs_the_output_directory(tmp_path, monkeypatch, capsys):
 
     assert main() == 0
     assert f"[INFO] Fetching into {tmp_path / 'downloads'}" in capsys.readouterr().err
+
+
+def test_fetch_prints_where_the_sums_file_is(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(
+        "omada_release_watch.cli.fetch_artifact",
+        lambda record, output_dir, **kwargs: FetchResult(
+            tmp_path / "a.tar.gz", "ab" * 32, True, True, tmp_path / "SHA256SUMS",
+        ),
+    )
+
+    fetch_selected_artifact([_finding_record()], tmp_path, json_output=False, load_result=_result(Outcome.VERIFIED))
+
+    assert f"Checksums: {tmp_path / 'SHA256SUMS'}" in capsys.readouterr().out
+
+
+def test_fetch_json_names_the_sums_file(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(
+        "omada_release_watch.cli.fetch_artifact",
+        lambda record, output_dir, **kwargs: FetchResult(
+            tmp_path / "a.tar.gz", "ab" * 32, True, True, tmp_path / "SHA256SUMS",
+        ),
+    )
+
+    fetch_selected_artifact([_finding_record()], tmp_path, json_output=True, load_result=_result(Outcome.VERIFIED))
+
+    assert json.loads(capsys.readouterr().out)["checksums"] == str(tmp_path / "SHA256SUMS")

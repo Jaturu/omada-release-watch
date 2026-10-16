@@ -1,9 +1,16 @@
 import hashlib
+import shutil
+import subprocess
 
 import pytest
 import requests
 
-from omada_release_watch.fetch import FetchError, fetch_artifact, sha256_file
+from omada_release_watch.fetch import (
+    CHECKSUMS_FILENAME,
+    FetchError,
+    fetch_artifact,
+    sha256_file,
+)
 
 
 class FakeResponse:
@@ -433,3 +440,84 @@ def test_fetch_allows_an_ordinary_name_beside_a_protected_one(tmp_path, monkeypa
     result = fetch_artifact(record, tmp_path, protected=[tmp_path / "config.yaml"])
 
     assert result.downloaded is True
+
+
+# --- SHA256SUMS beside the artifacts ------------------------------------------------
+
+
+def _fetch(tmp_path, monkeypatch, filename, content):
+    monkeypatch.setattr(
+        "omada_release_watch.fetch.requests.get",
+        lambda url, stream=True, timeout=60: FakeResponse([content]),
+    )
+    record = {"download_url": f"https://x/{filename}", "filename": filename}
+    return fetch_artifact(record, tmp_path)
+
+
+def test_a_download_records_its_hash_in_a_sums_file(tmp_path, monkeypatch):
+    result = _fetch(tmp_path, monkeypatch, "a.tar.gz", b"aaa")
+
+    sums = tmp_path / CHECKSUMS_FILENAME
+    assert result.checksums == sums
+    assert sums.read_text() == f"{hashlib.sha256(b'aaa').hexdigest()}  a.tar.gz\n"
+
+
+def test_a_second_download_appends_to_the_sums_file(tmp_path, monkeypatch):
+    _fetch(tmp_path, monkeypatch, "a.tar.gz", b"aaa")
+    _fetch(tmp_path, monkeypatch, "b.deb", b"bbb")
+
+    assert (tmp_path / CHECKSUMS_FILENAME).read_text() == (
+        f"{hashlib.sha256(b'aaa').hexdigest()}  a.tar.gz\n"
+        f"{hashlib.sha256(b'bbb').hexdigest()}  b.deb\n"
+    )
+
+
+def test_a_cache_hit_does_not_duplicate_its_sums_line(tmp_path, monkeypatch):
+    _fetch(tmp_path, monkeypatch, "a.tar.gz", b"aaa")
+    _fetch(tmp_path, monkeypatch, "a.tar.gz", b"aaa")
+
+    assert (tmp_path / CHECKSUMS_FILENAME).read_text().count("a.tar.gz") == 1
+
+
+def test_a_cache_hit_adds_a_missing_sums_line(tmp_path):
+    (tmp_path / "old.deb").write_bytes(b"old")
+
+    result = fetch_artifact({"download_url": "https://x/old.deb", "filename": "old.deb"}, tmp_path)
+
+    assert result.downloaded is False
+    assert (tmp_path / CHECKSUMS_FILENAME).read_text() == f"{hashlib.sha256(b'old').hexdigest()}  old.deb\n"
+
+
+def test_the_sums_file_is_a_name_the_catalog_may_not_use(tmp_path):
+    record = {"download_url": "https://x/SHA256SUMS", "filename": CHECKSUMS_FILENAME}
+
+    with pytest.raises(FetchError, match="Refusing"):
+        fetch_artifact(record, tmp_path)
+
+    assert not (tmp_path / CHECKSUMS_FILENAME).exists()
+
+
+def test_the_sums_file_is_not_written_through_a_symlink(tmp_path, monkeypatch):
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.write_text("")
+    output = tmp_path / "out"
+    output.mkdir()
+    (output / CHECKSUMS_FILENAME).symlink_to(elsewhere)
+
+    with pytest.raises(FetchError, match="Failed to write"):
+        _fetch(output, monkeypatch, "a.tar.gz", b"aaa")
+
+    assert elsewhere.read_text() == ""
+
+
+@pytest.mark.skipif(shutil.which("sha256sum") is None, reason="sha256sum not installed")
+def test_the_sums_file_is_readable_by_sha256sum(tmp_path, monkeypatch):
+    _fetch(tmp_path, monkeypatch, "a.tar.gz", b"aaa")
+    _fetch(tmp_path, monkeypatch, "b.deb", b"bbb")
+
+    run = subprocess.run(
+        ["sha256sum", "-c", "--strict", CHECKSUMS_FILENAME],
+        cwd=tmp_path, capture_output=True, text=True,
+    )
+
+    assert run.returncode == 0, run.stdout + run.stderr

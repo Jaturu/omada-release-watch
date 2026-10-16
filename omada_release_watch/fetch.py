@@ -22,6 +22,9 @@ class FetchError(RuntimeError):
 # before the hash is ever compared.
 DEFAULT_MAX_ARTIFACT_BYTES = 1024 * 1024 * 1024
 
+# Written beside the artifacts in the format `shasum -a 256 -c` reads.
+CHECKSUMS_FILENAME = "SHA256SUMS"
+
 
 @dataclass
 class FetchResult:
@@ -37,6 +40,7 @@ class FetchResult:
     sha256: str
     downloaded: bool
     hash_checked: bool
+    checksums: Path | None = None
 
 
 def sha256_file(path: Path) -> str:
@@ -47,6 +51,24 @@ def sha256_file(path: Path) -> str:
             digest.update(chunk)
 
     return digest.hexdigest()
+
+
+def record_checksum(output_dir: Path, filename: str, sha256: str) -> Path:
+    """Append `sha256  filename` to the sums file unless that line is present."""
+    sums = output_dir / CHECKSUMS_FILENAME
+    line = f"{sha256}  {filename}\n"
+
+    # One descriptor reads and appends, and O_NOFOLLOW refuses a planted link.
+    try:
+        handle = os.open(sums, os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o644)
+    except OSError as exc:
+        raise FetchError(f"Failed to write {sums}: {exc}") from exc
+
+    with os.fdopen(handle, "r+") as fh:
+        if line not in fh.read().splitlines(keepends=True):
+            fh.write(line)
+
+    return sums
 
 
 def fetch_artifact(
@@ -76,6 +98,9 @@ def fetch_artifact(
 
     if not is_safe_filename(filename):
         raise FetchError(f"Refusing unsafe filename: {filename!r}")
+
+    if filename == CHECKSUMS_FILENAME:
+        raise FetchError(f"Refusing to write {filename!r}: it is the file this tool records hashes in.")
 
     destination_dir = Path(output_dir)
     destination_dir.mkdir(parents=True, exist_ok=True)
@@ -109,7 +134,9 @@ def fetch_artifact(
                 "Refusing to overwrite existing file."
             )
 
-        return FetchResult(destination, actual_sha256, False, bool(expected_sha256))
+        sums = record_checksum(destination_dir, filename, actual_sha256)
+
+        return FetchResult(destination, actual_sha256, False, bool(expected_sha256), sums)
 
     sha256 = hashlib.sha256()
 
@@ -177,4 +204,6 @@ def fetch_artifact(
 
         raise FetchError(f"Failed to write artifact: {exc}") from exc
 
-    return FetchResult(destination, actual_sha256, True, bool(expected_sha256))
+    sums = record_checksum(destination_dir, filename, actual_sha256)
+
+    return FetchResult(destination, actual_sha256, True, bool(expected_sha256), sums)

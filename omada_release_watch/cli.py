@@ -586,6 +586,7 @@ def fetch_selected_artifact(
         "sha256": fetched.sha256,
         "sha256_verified": fetched.hash_checked,
         "path": str(path),
+        "checksums": str(fetched.checksums.resolve()) if fetched.checksums else None,
         "downloaded": fetched.downloaded,
         "verification": load_result.outcome.value,
         "signer": load_result.signer,
@@ -609,6 +610,8 @@ def fetch_selected_artifact(
     print(f"Path:     {path}")
     print(f"SHA256:   {fetched.sha256}")
     print(f"Downloaded: {str(fetched.downloaded).lower()}")
+    if fetched.checksums:
+        print(f"Checksums: {fetched.checksums.resolve()}")
     print(f"Download: {record.get('download_url', 'unknown')}")
 
     # Saying nothing here would present a hash this tool computed from what
