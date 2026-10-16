@@ -70,6 +70,9 @@ def build_parser() -> argparse.ArgumentParser:
   Show the latest release
     omada-release-watch --latest
 
+  List every entry, newest first
+    omada-release-watch --all
+
   Update the catalog
     omada-release-watch --refresh
 
@@ -128,6 +131,12 @@ Configuration:
         action="store_true",
         default=None,
         help="Show artifacts for the newest matching release.",
+    )
+    query_options.add_argument(
+        "--all",
+        action="store_true",
+        default=None,
+        help="List every catalog entry, newest version first. Takes no other query or fetch option.",
     )
     query_options.add_argument(
         "--version-prefix",
@@ -238,10 +247,25 @@ def resolve_verify(
     return True
 
 
+QUERY_FILTERS = ("version_prefix", "package", "archive", "platform", "kind", "latest")
+ALL_EXCLUDES = QUERY_FILTERS + ("fetch",)
+
+
+def all_conflicts(args: argparse.Namespace) -> list[str]:
+    """Flags that may not accompany --all. Command line only, so it has no
+    config key and a config query section cannot narrow it."""
+    if not getattr(args, "all", None):
+        return []
+    return [name for name in ALL_EXCLUDES if getattr(args, name, None)]
+
+
 def resolve_query_options(
     args: argparse.Namespace,
     query_cfg: dict[str, Any],
 ) -> dict[str, Any]:
+    if getattr(args, "all", None):
+        return {name: None for name in QUERY_FILTERS} | {"latest": False, "all": True}
+
     return {
         "version_prefix": config_value(args, query_cfg, "version_prefix", None),
         "package": config_value(args, query_cfg, "package", None),
@@ -249,6 +273,7 @@ def resolve_query_options(
         "platform": config_value(args, query_cfg, "platform", None),
         "kind": config_value(args, query_cfg, "kind", None),
         "latest": config_bool(args, query_cfg, "latest", False),
+        "all": False,
     }
 
 
@@ -261,8 +286,14 @@ def query_requested(query_options: dict[str, Any]) -> bool:
             query_options["platform"],
             query_options["kind"],
             query_options["latest"],
+            query_options["all"],
         ]
     )
+
+
+def catalog_filters(query_options: dict[str, Any]) -> dict[str, Any]:
+    """`all` only decides whether to query, Catalog.query does not take it."""
+    return {key: value for key, value in query_options.items() if key != "all"}
 
 
 def print_records(records: list[dict[str, Any]]) -> None:
@@ -434,6 +465,7 @@ def print_status(
     print()
     print("Common commands:")
     print("  omada-release-watch --latest")
+    print("  omada-release-watch --all")
     print("  omada-release-watch --fetch --latest --kind stable --platform linux --package tgz")
     print()
     print("Run --help for the full reference.")
@@ -446,7 +478,7 @@ def query_catalog(
     json_output: bool,
     load_result: LoadResult,
 ) -> int:
-    matches = catalog.query(**query_options)
+    matches = catalog.query(**catalog_filters(query_options))
 
     if json_output:
         # Verification notices go to stderr, and the documented recipes discard
@@ -469,6 +501,8 @@ def query_catalog(
             f"Found {len(matches)} Omada record(s) "
             f"for version prefix {query_options['version_prefix']}:"
         )
+    elif query_options["all"]:
+        print(f"All {len(matches)} Omada record(s), newest first:")
     else:
         print(f"Found {len(matches)} matching Omada record(s):")
 
@@ -593,6 +627,11 @@ def main() -> int:
     if args.json and args.progress:
         parser.error("--json and --progress true are mutually exclusive: --json always disables progress output")
 
+    conflicts = all_conflicts(args)
+    if conflicts:
+        flags = ", ".join("--" + name.replace("_", "-") for name in conflicts)
+        parser.error(f"--all lists the whole catalog and takes no query or fetch option, remove {flags}")
+
     loaded = load_config(args.config, DEFAULT_CONFIG_FILE)
     config = loaded.data
 
@@ -671,7 +710,7 @@ def main() -> int:
 
     if query_requested(query_options) or args.fetch:
         try:
-            matches = catalog.query(**query_options)
+            matches = catalog.query(**catalog_filters(query_options))
         except CatalogError as exc:
             emit_error(str(exc), json_output)
             return 1

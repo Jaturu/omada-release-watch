@@ -112,6 +112,12 @@ Show the newest release in the catalog:
 ./omada-release-watch.py --latest
 ```
 
+List every entry, newest first:
+
+```bash
+./omada-release-watch.py --all
+```
+
 Show only Linux packages:
 
 ```bash

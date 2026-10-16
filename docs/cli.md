@@ -95,6 +95,16 @@ The human-readable notice also goes to standard error rather than standard outpu
 
 ---
 
+# Listing Everything
+
+```bash
+./omada-release-watch.py --all
+```
+
+Every entry in the catalog, sorted by version with the newest on top. `--all` is a listing, not a query: it takes no filter, no `--latest` and no `--fetch`, and it ignores the `query` section of `config.yaml`. `--refresh` and `--json` combine with it as usual.
+
+---
+
 # Filtering Results
 
 Filters may be combined to narrow matching artifacts.
@@ -137,6 +147,7 @@ Filters may be combined to narrow matching artifacts.
 | Option | Description |
 |----------|-------------|
 | `--latest` | Show artifacts for the newest matching release. |
+| `--all` | List every catalog entry, newest version first. Takes no other query or fetch option. |
 | `--version-prefix` | Filter by version prefix. |
 | `--platform` | Filter by platform. |
 | `--package` | Filter by package type. |

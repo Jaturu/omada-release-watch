@@ -14,6 +14,8 @@ from omada_release_watch.catalog import Catalog
 from omada_release_watch.cli import (
     PUBLISHED_CATALOG,
     REFRESHED_CATALOG,
+    all_conflicts,
+    catalog_filters,
     describe_outcome,
     fetch_selected_artifact,
     main,
@@ -91,6 +93,7 @@ def test_parse_bool_invalid_raises():
 def _args(**overrides):
     defaults = dict(
         version_prefix=None, package=None, archive=None, platform=None, kind=None, latest=None,
+        all=None,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -109,6 +112,42 @@ def test_query_requested_true_when_latest_set():
 def test_query_requested_true_when_config_sets_a_filter():
     options = resolve_query_options(_args(), {"platform": "linux"})
     assert query_requested(options) is True
+
+
+def test_query_requested_true_when_all_set():
+    options = resolve_query_options(_args(all=True), {})
+    assert query_requested(options) is True
+
+
+def test_catalog_filters_drop_the_all_switch():
+    options = resolve_query_options(_args(all=True), {})
+    assert "all" not in catalog_filters(options)
+
+
+def test_all_ignores_the_config_query_section():
+    options = resolve_query_options(_args(all=True), {"platform": "linux", "latest": True})
+    assert options["platform"] is None
+    assert options["latest"] is False
+
+
+def test_all_has_no_config_key():
+    options = resolve_query_options(_args(), {"all": True})
+    assert options["all"] is False
+    assert query_requested(options) is False
+
+
+def test_all_conflicts_names_only_query_and_fetch_flags():
+    args = _args(all=True, latest=True, kind="stable")
+    args.fetch = True
+    args.refresh = True
+    args.json = True
+    assert all_conflicts(args) == ["kind", "latest", "fetch"]
+
+
+def test_all_conflicts_is_empty_without_all():
+    args = _args(latest=True)
+    args.fetch = True
+    assert all_conflicts(args) == []
 
 
 # --- resolve_catalog_dir / resolve_fetch_output_dir ------------------------------
@@ -620,6 +659,72 @@ def test_cli_latest_returns_both_kinds_at_same_version(tmp_path):
     assert {r["fingerprint"] for r in payload["records"]} == {"fp-stable", "fp-beta"}
 
 
+def _three_version_catalog(tmp_path):
+    def entry(version, name):
+        return {
+            "version": version, "platform": "linux", "package": "tgz",
+            "archive": "none", "kind": "stable", "filename": name,
+            "download_url": f"https://x/{name}",
+            "source_url": "https://example.com/", "title": "t",
+        }
+
+    _write_catalog(tmp_path / PUBLISHED_CATALOG, {
+        "fp-old": entry("5.15.24.19", "old.tar.gz"),
+        "fp-new": entry("6.3.0.111", "new.tar.gz"),
+        "fp-mid": entry("6.2.14.11", "mid.tar.gz"),
+    })
+
+
+def test_cli_all_lists_every_entry_newest_first(tmp_path):
+    _three_version_catalog(tmp_path)
+
+    result = _run_cli(tmp_path, ["--progress", "false", "--verify", "false", "--all", "--json"])
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [r["fingerprint"] for r in payload["records"]] == ["fp-new", "fp-mid", "fp-old"]
+
+
+def test_cli_all_text_heading_counts_every_entry(tmp_path):
+    _three_version_catalog(tmp_path)
+
+    result = _run_cli(tmp_path, ["--progress", "false", "--verify", "false", "--all"])
+    assert result.returncode == 0
+    assert result.stdout.startswith("All 3 Omada record(s), newest first:")
+
+
+@pytest.mark.parametrize("extra", [
+    ["--latest"],
+    ["--version-prefix", "6"],
+    ["--platform", "linux"],
+    ["--package", "tgz"],
+    ["--archive", "none"],
+    ["--kind", "stable"],
+    ["--fetch", "--kind", "stable"],
+])
+def test_cli_all_rejects_every_other_query_or_fetch_flag(tmp_path, extra):
+    _three_version_catalog(tmp_path)
+
+    result = _run_cli(tmp_path, ["--progress", "false", "--verify", "false", "--all", *extra])
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "--all lists the whole catalog" in result.stderr
+    assert extra[0] in result.stderr
+
+
+def test_cli_all_ignores_query_defaults_from_config(tmp_path):
+    _three_version_catalog(tmp_path)
+    (tmp_path / "config.yaml").write_text("query:\n  platform: windows\n  latest: true\n")
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--config", str(tmp_path / "config.yaml"),
+         "--progress", "false", "--verify", "false", "--all", "--json"],
+        cwd=tmp_path, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [r["fingerprint"] for r in payload["records"]] == ["fp-new", "fp-mid", "fp-old"]
+
+
 def test_cli_json_and_progress_true_rejected(tmp_path):
     """--json and an explicit --progress true are contradictory: --json
     always implies no progress output. --progress false stays allowed
@@ -650,6 +755,7 @@ def _query_options(**overrides):
         "platform": None,
         "kind": None,
         "latest": False,
+        "all": False,
     }
     options.update(overrides)
     return options
