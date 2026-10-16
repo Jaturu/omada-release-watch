@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Omada Release Watch is a CLI that queries a signed catalog of TP-Link Omada Software Controller releases and fetches artifacts from it. Release discovery is deliberately not part of this project: a separate scheduled crawler builds the catalog and publishes it as a signed Sigstore bundle, so TP-Link sees one crawler rather than one per user. Python 3.11+, runtime dependencies `requests`, `sigstore`, `pyyaml`.
 
+## Branching
+
+Work on `dev` and open a pull request into `main`. Every push to `main` that touches anything other than the catalog and the status page builds, signs and releases an image, so `main` moves only by merge. CI runs on pull requests, the image workflow only on `main`.
+
 ## Running
 
 ```bash
@@ -13,12 +17,13 @@ source .venv/bin/activate   # .envrc already does this via direnv
 ./omada-release-watch.py                                             # status: catalog, verdict, entry count
 ./omada-release-watch.py --refresh                                   # download and verify the published catalog
 ./omada-release-watch.py --latest                                    # query the catalog
+./omada-release-watch.py --all                                       # list every entry, newest first
 ./omada-release-watch.py --fetch --latest --kind stable --platform linux --package tgz
 ./omada-release-watch.py --latest --json                             # machine-readable output
 ./omada-release-watch.py --verify false --latest                     # run without signature checking
 ```
 
-Tests: `pip install --require-hashes -r requirements-dev.txt` then `pytest`. Config lives in `pytest.ini`, and `tests/` mirrors the package module-for-module.
+Tests: `pip install --require-hashes -r requirements-dev.txt` then `pytest`. Config lives in `pytest.ini`, and `tests/` mirrors the package, plus tests for the release-report scripts.
 
 `ruff check .` lints, configured in `ruff.toml`. The rule set is narrow on purpose: the wider default flags the bare excepts at the verification boundary and the concatenated `EXPECTED_IDENTITIES` literal the crawler parses with `ast`, both deliberate. There is still no type checker and no packaging metadata (no `pyproject.toml`).
 
@@ -40,7 +45,7 @@ The app is a strict linear pipeline, and each stage only talks to the stage next
 Refresh (refresh.py) → Verify (bundle.py) → Catalog (catalog.py) → Query → Fetch (fetch.py) → Verify (SHA256)
 ```
 
-- **The catalog is read-only.** It arrives inside a signed bundle, so writing to it would break the signature and make the next run report tampering. `Catalog` has no `save`, `replace`, or `update_entry`, and `--fetch` reports the hash it computed rather than recording it. There is no write path.
+- **The catalog is read-only.** It arrives inside a signed bundle, so writing to it would break the signature and make the next run report tampering. `Catalog` has no `save`, `replace`, or `update_entry`. `--fetch` reports the hash it computed and records it in `SHA256SUMS` beside the artifact, never in the catalog. There is no write path into the catalog.
 - **Two catalog copies, one directory, never merged.** `catalog.sigstore.json` is the published copy that arrives by clone or image. `catalog-refresh.sigstore.json` is written only by `--refresh`. `cli.select_catalog` prefers a verified copy, then the newer signed `updated` date, then the published one. Ordering never reads the filename, so an unsigned name cannot pin the tool to a stale catalog. `--catalog-dir` is read-only and refresh always writes to the working directory.
 - **A signature does not establish freshness.** An old bundle is authentically signed, so `refresh` refuses a download whose signed `updated` is older than the catalog in place, and `fetch` compares a downloaded artifact against the catalog's SHA256 on the download path, not only on a cache hit. Both are the only checks standing between a valid signature and a replayed or substituted artifact.
 - **Verify the bytes, never the path.** `bundle.load_bytes` checks a payload in memory and `bundle.load` is the thin wrapper that reads a file and delegates. `refresh` verifies the downloaded bytes before anything is staged, then confirms the staged file is still the one it wrote before renaming. Verifying a path and then acting on that path reads the file twice, and the second read is not what the first result described.
@@ -48,9 +53,9 @@ Refresh (refresh.py) → Verify (bundle.py) → Catalog (catalog.py) → Query �
 - **Reporting is for queries, not for acting on the catalog.** `--fetch` refuses a catalog whose verification failed unless `--allow-unverified` is passed, because the catalog chooses both the download URL and the hash it is checked against. `cli.FETCHABLE_OUTCOMES` is the list, and it includes `DISABLED`, because verification switched off is the caller's instruction rather than a failure, and it is the documented way to run offline. `--allow-unverified` is command line only and has no config key.
 - **A config file may not weaken a security setting unless it can be vouched for.** `load_config` opens the file once, reads the content and decides the verdict from `os.fstat` on that same descriptor. Resolving the name a second time to judge it lets the file change in between, so the file vouched for would not be the file that was read. A check that cannot run returns a reason, never `None`.
 - **Names get resolved once.** `refresh._read_by_descriptor` opens with `O_NOFOLLOW` and reads and stats that descriptor. `os.stat` and `read_bytes` each resolve the name again and both follow symlinks, so checking one and reading the other describes two different files whenever someone can write the directory. What landed is confirmed after the rename too, because the rename resolves the name once more and cannot be made atomic with the check.
-- **A catalog may not name the files the tool trusts.** `fetch_artifact` refuses a destination that resolves to the config file or either catalog copy. Otherwise a fetch writes a `config.yaml` owned by the caller at 0644, which is exactly the shape the config gate vouches for, and one fetch becomes permanent silent verification-off.
+- **A catalog may not name the files the tool trusts.** `fetch_artifact` refuses a destination that resolves to the config file or either catalog copy, and refuses the name `SHA256SUMS`. Otherwise a fetch writes a `config.yaml` owned by the caller at 0644, which is exactly the shape the config gate vouches for, and one fetch becomes permanent silent verification-off.
 - **Catalog-supplied filenames pass an allowlist, not a denylist.** `text.SAFE_FILENAME_RE` accepts the character set the vendor actually uses. A denylist of separators lets through `C:evil.exe`, NUL bytes and terminal escapes, and `print_records` writes those straight to a terminal. `tests/test_text.py` checks the rule against every filename in the committed catalog, so a published artifact this client would refuse to name fails CI.
-- **Staging files are never predictably named.** `refresh` and `fetch` both stage through `tempfile.mkstemp` in the destination directory. A fixed `.part` name lets anyone who can write that directory pre-place a symlink and redirect the write.
+- **Staging files are never predictably named.** `refresh` and `fetch` both stage through `tempfile.mkstemp` in the destination directory. A fixed `.part` name lets anyone who can write that directory pre-place a symlink and redirect the write. `SHA256SUMS` is the one fixed name fetch writes, so it is opened with `O_NOFOLLOW` and read and appended through a single descriptor.
 - **Verification reports, it does not refuse.** A catalog that fails verification still answers queries, loudly. The one exception is `--refresh`, which refuses a download that does not check out and leaves the existing catalog in place. Refusing new data is not the same as refusing to run.
 - **The pinned signing identity is what makes verification mean anything.** `bundle.EXPECTED_IDENTITIES` pins the crawler's signing workflow, which lives in a separate repository. Without it any Fulcio-issued certificate would satisfy the check. It is a tuple because the identity includes the workflow path and git ref, so moving that workflow needs a transition entry.
 - **Library error text is never the user-facing message.** `cli.describe_outcome` owns the wording for every outcome and puts the underlying error beneath it as detail, so messages don't change when sigstore does. Notices go to stderr so `--json` stdout stays parseable.

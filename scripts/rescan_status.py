@@ -59,13 +59,8 @@ def verdict(summaries: list[PlatformSummary]) -> str:
     return "No findings."
 
 
-def render_status(
-    image: str,
-    tag: str,
-    index_digest: str,
-    summaries: list[PlatformSummary],
-) -> str:
-    checked = next(
+def scanned_at(summaries: list[PlatformSummary]) -> str:
+    return next(
         (
             s.grype.get("scanned") or s.trivy.get("scanned")
             for s in summaries
@@ -73,6 +68,35 @@ def render_status(
         ),
         "",
     )
+
+
+def badge(summaries: list[PlatformSummary]) -> dict:
+    """The verdict in the shields.io endpoint schema, for the README badge."""
+    actionable = _total(summaries, ACTIONABLE)
+    everything = sum(
+        sum(counts.values())
+        for summary in summaries
+        for counts in (summary.grype["by_severity"], summary.trivy["by_severity"])
+    )
+    if actionable:
+        message, color = f"{actionable} High or Critical, action needed", "red"
+    elif everything:
+        message, color = f"no High or Critical, {everything} lower", "brightgreen"
+    else:
+        message, color = "no findings", "brightgreen"
+
+    checked = scanned_at(summaries)
+    label = f"scanned {checked[:10]}" if checked else "security status"
+    return {"schemaVersion": 1, "label": label, "message": message, "color": color}
+
+
+def render_status(
+    image: str,
+    tag: str,
+    index_digest: str,
+    summaries: list[PlatformSummary],
+) -> str:
+    checked = scanned_at(summaries)
     database = next((s.grype.get("db_built") for s in summaries if s.grype.get("db_built")), "")
 
     out: list[str] = []
@@ -157,6 +181,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--expect-platforms", type=int)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--badge", type=Path, help="Also write the verdict as a shields.io endpoint JSON file.")
     args = parser.parse_args(argv)
 
     summaries = []
@@ -185,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
         args.output.write_text(body)
     else:
         sys.stdout.write(body)
+    if args.badge:
+        args.badge.write_text(json.dumps(badge(summaries), indent=2) + "\n")
     return 0
 
 
