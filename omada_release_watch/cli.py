@@ -305,6 +305,7 @@ def print_records(records: list[dict[str, Any]]) -> None:
         print(f"Package:  {item.get('package', 'unknown')}")
         print(f"Archive:  {item.get('archive', 'unknown')}")
         print(f"File:     {item.get('filename', 'unknown')}")
+        print(f"SHA256:   {item.get('sha256') or 'not recorded'}")
         print(f"Page:     {item.get('source_url', 'unknown')}")
         print(f"Download: {item.get('download_url', 'unknown')}")
 

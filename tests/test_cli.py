@@ -20,6 +20,7 @@ from omada_release_watch.cli import (
     fetch_selected_artifact,
     main,
     parse_bool,
+    print_records,
     print_status,
     query_catalog,
     query_requested,
@@ -1418,3 +1419,21 @@ def test_fetch_json_names_the_sums_file(tmp_path, monkeypatch, capsys):
     fetch_selected_artifact([_finding_record()], tmp_path, json_output=True, load_result=_result(Outcome.VERIFIED))
 
     assert json.loads(capsys.readouterr().out)["checksums"] == str(tmp_path / "SHA256SUMS")
+
+
+# --- record output ------------------------------------------------------------------
+
+
+def test_print_records_shows_the_recorded_sha256(capsys):
+    print_records([_finding_record(sha256="ab" * 32)])
+
+    assert f"SHA256:   {'ab' * 32}" in capsys.readouterr().out
+
+
+def test_print_records_says_when_no_sha256_is_recorded(capsys):
+    record = _finding_record()
+    record.pop("sha256", None)
+
+    print_records([record])
+
+    assert "SHA256:   not recorded" in capsys.readouterr().out
