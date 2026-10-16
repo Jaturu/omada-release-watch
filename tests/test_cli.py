@@ -1347,3 +1347,48 @@ def test_the_image_ships_what_the_version_flag_reads():
     dockerfile = (REPO_ROOT / "Dockerfile").read_text()
 
     assert "COPY VERSION" in dockerfile
+
+
+# --- fetch reports where the file actually landed ---------------------------------
+
+
+def test_fetch_prints_an_absolute_path(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "omada_release_watch.cli.fetch_artifact",
+        lambda record, output_dir, **kwargs: FetchResult(Path("downloads/a.tar.gz"), "ab" * 32, True, True),
+    )
+
+    fetch_selected_artifact([_finding_record()], Path("downloads"), json_output=False, load_result=_result(Outcome.VERIFIED))
+
+    assert f"Path:     {tmp_path / 'downloads' / 'a.tar.gz'}" in capsys.readouterr().out
+
+
+def test_fetch_json_path_is_absolute(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "omada_release_watch.cli.fetch_artifact",
+        lambda record, output_dir, **kwargs: FetchResult(Path("downloads/a.tar.gz"), "ab" * 32, True, True),
+    )
+
+    fetch_selected_artifact([_finding_record()], Path("downloads"), json_output=True, load_result=_result(Outcome.VERIFIED))
+
+    assert json.loads(capsys.readouterr().out)["path"] == str(tmp_path / "downloads" / "a.tar.gz")
+
+
+def test_main_fetch_logs_the_output_directory(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "omada_release_watch.cli.fetch_artifact",
+        lambda record, output_dir, **kwargs: FetchResult(output_dir / "a.deb", "ab" * 32, True, True),
+    )
+    monkeypatch.setattr(sys, "argv", [
+        "orw",
+        "--config", str(_json_config(tmp_path)),
+        "--catalog-dir", str(_seeded_catalog(tmp_path)), "--verify", "false",
+        "--fetch", "--kind", "stable", "--version-prefix", "6.2.14.10",
+        "--platform", "linux", "--package", "deb",
+    ])
+
+    assert main() == 0
+    assert f"[INFO] Fetching into {tmp_path / 'downloads'}" in capsys.readouterr().err

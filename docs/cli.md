@@ -161,7 +161,7 @@ Filters may be combined to narrow matching artifacts.
 | Option | Description |
 |----------|-------------|
 | `--fetch` | Download the selected artifact. |
-| `--output-dir` | Directory used for downloaded artifacts. |
+| `--output-dir` | Directory used for downloaded artifacts. A relative path is taken from the working directory. The output reports the resulting absolute path. |
 | `--allow-unverified` | Fetch even when the catalog did not verify. |
 
 Fetch requires enough filters to identify exactly one artifact.

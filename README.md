@@ -160,6 +160,17 @@ Mount a volume at `/data` to keep the catalog between runs. A named volume inher
 docker run --rm -v omada-catalog:/data docker.io/jaturu/omada-release-watch --refresh
 ```
 
+A fetch writes into `downloads/` under `/data`. Without a mount for that path the artifact is removed along with the container, so bind a host directory there. The same ownership note applies: the directory has to be writable by the container's uid, or the run needs `--user`.
+
+```bash
+mkdir -p downloads
+docker run --rm -v omada-catalog:/data -v "$PWD/downloads:/data/downloads" \
+  docker.io/jaturu/omada-release-watch \
+  --fetch --latest --kind stable --platform linux --package tgz
+```
+
+The command reports the absolute path of the file as the container sees it, so `/data/downloads/...` in the output is `./downloads/...` on the host.
+
 Configuration is optional. Every setting has a default, and the example file inside the image shows what they are:
 
 ```bash

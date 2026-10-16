@@ -577,11 +577,15 @@ def fetch_selected_artifact(
         emit_error(str(exc), json_output)
         return 1
 
+    # Relative to the working directory is where the file is, but not where
+    # the user is. Inside a container the two never line up.
+    path = fetched.path.resolve()
+
     result = {
         **record,
         "sha256": fetched.sha256,
         "sha256_verified": fetched.hash_checked,
-        "path": str(fetched.path),
+        "path": str(path),
         "downloaded": fetched.downloaded,
         "verification": load_result.outcome.value,
         "signer": load_result.signer,
@@ -602,7 +606,7 @@ def fetch_selected_artifact(
     print(f"Package:  {record.get('package', 'unknown')}")
     print(f"Archive:  {record.get('archive', 'unknown')}")
     print(f"File:     {record.get('filename', 'unknown')}")
-    print(f"Path:     {fetched.path}")
+    print(f"Path:     {path}")
     print(f"SHA256:   {fetched.sha256}")
     print(f"Downloaded: {str(fetched.downloaded).lower()}")
     print(f"Download: {record.get('download_url', 'unknown')}")
@@ -721,6 +725,7 @@ def main() -> int:
                 return 1
 
             output_dir = resolve_fetch_output_dir(args, fetch_cfg)
+            progress("INFO", f"Fetching into {output_dir.resolve()}", log_progress)
             return fetch_selected_artifact(
                 matches,
                 output_dir=output_dir,
