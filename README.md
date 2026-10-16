@@ -146,6 +146,20 @@ Fetch from the catalog already in place, without updating it first:
 
 # Container
 
+The quickest way to the latest artifact is the wrapper in this repository. It needs only Docker, mounts the clone as `/data`, and runs as your own user so `downloads/` is yours:
+
+```bash
+git clone https://github.com/Jaturu/omada-release-watch.git
+cd omada-release-watch
+./fetch-latest.sh
+```
+
+With no arguments it fetches the stable Linux `tar.gz`. Any arguments replace those three filters:
+
+```bash
+./fetch-latest.sh --kind pre-release --platform windows --package exe
+```
+
 The image runs as a non-root user and works from `/data`, where it looks for the catalog and for `config.yaml`.
 
 No catalog is baked into the image, so refresh and query in one run:
@@ -160,16 +174,7 @@ Mount a volume at `/data` to keep the catalog between runs. A named volume inher
 docker run --rm -v omada-catalog:/data docker.io/jaturu/omada-release-watch --refresh
 ```
 
-A fetch writes into `downloads/` under `/data`. Without a mount for that path the artifact is removed along with the container, so bind a host directory there. The same ownership note applies: the directory has to be writable by the container's uid, or the run needs `--user`.
-
-```bash
-mkdir -p downloads
-docker run --rm -v omada-catalog:/data -v "$PWD/downloads:/data/downloads" \
-  docker.io/jaturu/omada-release-watch \
-  --fetch --latest --kind stable --platform linux --package tgz
-```
-
-The command reports the absolute path of the file as the container sees it, so `/data/downloads/...` in the output is `./downloads/...` on the host.
+A fetch writes into `downloads/` under `/data`. Without a mount for that path the artifact is removed along with the container, and a bind-mounted host directory has to be writable by the container's uid. `fetch-latest.sh` above handles both, so use it for fetching rather than the named volume.
 
 Configuration is optional. Every setting has a default, and the example file inside the image shows what they are:
 
