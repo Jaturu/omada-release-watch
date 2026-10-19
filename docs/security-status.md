@@ -2,15 +2,15 @@
 
 No High or Critical findings. 10 lower-severity finding(s) recorded below.
 
-Release `v1.0.0-9`, published as `docker.io/jaturu/omada-release-watch:v1.0.0-9` and `docker.io/jaturu/omada-release-watch:latest`.
-Manifest list `sha256:cd279b78570152b21b559fd57400e03b99958afdcefe3413f02af6cb92bdb68c`.
-Re-scanned 2026-10-15 23:49 UTC against a vulnerability database built 2026-10-15 06:30 UTC.
+Release `v1.0.0-13`, published as `docker.io/jaturu/omada-release-watch:v1.0.0-13` and `docker.io/jaturu/omada-release-watch:latest`.
+Manifest list `sha256:28d1cc621bb07067b7429d4eab4a747dce508f1fd572f2090b6c4533d43d6ae8`.
+Re-scanned 2026-10-19 13:08 UTC against a vulnerability database built 2026-10-19 06:39 UTC.
 
 This page is regenerated on a schedule from the CycloneDX SBOM attached to the published image, so it reflects what the scanners know now rather than what they knew at build time. It is generated output and is not signed. The per-release pages under Releases are the build-time snapshots and do not change.
 
 ## linux-amd64
 
-Image digest: `sha256:7415f11366825aa3d6f219bbcdb2891ef022afff0425a8265bbfc90373c12fca`
+Image digest: `sha256:7d9b160f21fb4dc3c8151be983810fd4f46b7b9d0a3b8e23a2b2066e81cda029`
 
 | CVE | Severity | Packages | Fixed in |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Image digest: `sha256:7415f11366825aa3d6f219bbcdb2891ef022afff0425a8265bbfc90373
 
 ## linux-arm64
 
-Image digest: `sha256:024eef614bc89fa5a45d085a4a47460101eec322c88d4e60f72a718b61520efc`
+Image digest: `sha256:0e7d5c66e6c62b9b9067bf88036cdb5f0fd0a87d591080a16bdf4d0ef30528f0`
 
 | CVE | Severity | Packages | Fixed in |
 |---|---|---|---|
