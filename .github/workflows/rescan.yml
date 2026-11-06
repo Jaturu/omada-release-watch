@@ -50,6 +50,25 @@ jobs:
         with:
           version: v0.72.0
 
+      # Keys match the scanner-db workflow, which warms both caches daily.
+      - name: Scanner cache key (daily)
+        id: dbday
+        run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Trivy database
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ steps.dbday.outputs.day }}
+          restore-keys: trivy-db-
+
+      - name: Cache Grype database
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/grype/db
+          key: grype-db-v0.116.0-${{ steps.dbday.outputs.day }}
+          restore-keys: grype-db-v0.116.0-
+
       - name: Pull the published SBOM for this platform
         run: |
           digest="$(crane digest --platform '${{ matrix.platform }}' "${IMAGE}:latest")"
@@ -75,7 +94,6 @@ jobs:
           severity-cutoff: high
           grype-version: v0.116.0
           fail-build: false
-          cache-db: true
 
       - name: Trivy re-scan
         run: |

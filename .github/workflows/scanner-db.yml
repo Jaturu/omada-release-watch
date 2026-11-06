@@ -1,0 +1,54 @@
+name: scanner-db
+
+# Downloads the Grype and Trivy databases once a day and saves them to the
+# Actions cache under the keys the image and rescan workflows restore.
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scanner cache key (daily)
+        id: dbday
+        run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Trivy database
+        id: trivy-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ steps.dbday.outputs.day }}
+
+      - name: Cache Grype database
+        id: grype-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/grype/db
+          key: grype-db-v0.116.0-${{ steps.dbday.outputs.day }}
+
+      - name: Install Trivy
+        if: steps.trivy-cache.outputs.cache-hit != 'true'
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567  # v0.3.1
+        with:
+          version: v0.72.0
+
+      - name: Download the Trivy database
+        if: steps.trivy-cache.outputs.cache-hit != 'true'
+        run: trivy image --download-db-only
+
+      - name: Install Grype
+        if: steps.grype-cache.outputs.cache-hit != 'true'
+        id: grype
+        uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
+        with:
+          grype-version: v0.116.0
+
+      - name: Download the Grype database
+        if: steps.grype-cache.outputs.cache-hit != 'true'
+        run: ${{ steps.grype.outputs.cmd }} db update
