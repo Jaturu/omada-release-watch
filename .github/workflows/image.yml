@@ -104,16 +104,24 @@ jobs:
         with:
           version: v0.72.0
 
-      - name: Trivy cache key (daily)
-        id: tcache
+      # Keys match the scanner-db workflow, which warms both caches daily.
+      - name: Scanner cache key (daily)
+        id: dbday
         run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Trivy database
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/trivy
-          key: trivy-db-${{ runner.arch }}-${{ steps.tcache.outputs.day }}
-          restore-keys: trivy-db-${{ runner.arch }}-
+          key: trivy-db-${{ steps.dbday.outputs.day }}
+          restore-keys: trivy-db-
+
+      - name: Cache Grype database
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/grype/db
+          key: grype-db-v0.116.0-${{ steps.dbday.outputs.day }}
+          restore-keys: grype-db-v0.116.0-
 
       # --- SBOM (Syft), scanned natively on this arch ---
 
@@ -146,7 +154,6 @@ jobs:
           severity-cutoff: high
           grype-version: v0.116.0
           fail-build: true
-          cache-db: true
 
       - name: Trivy image scan (full report)
         run: |
@@ -304,16 +311,17 @@ jobs:
         with:
           version: v0.72.0
 
-      - name: Trivy cache key (daily)
-        id: tcache
+      # Keys match the scanner-db workflow, which warms both caches daily.
+      - name: Scanner cache key (daily)
+        id: dbday
         run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Trivy database
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/trivy
-          key: trivy-db-${{ runner.arch }}-${{ steps.tcache.outputs.day }}
-          restore-keys: trivy-db-${{ runner.arch }}-
+          key: trivy-db-${{ steps.dbday.outputs.day }}
+          restore-keys: trivy-db-
 
       - name: Install crane
         uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b  # v0.7
