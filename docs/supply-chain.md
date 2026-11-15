@@ -50,20 +50,20 @@ Per platform, in `build-platform`:
 3. Generate an SBOM with Syft against that image.
 4. Scan with Grype, applying `.grype-ignore.yaml`, and fail on high severity or above.
 5. Scan with Trivy, once for a full report and once as a gate on HIGH and CRITICAL.
-6. Attach the SBOM and both reports to that platform's image digest.
+6. On amd64 only, scan the source tree for secrets and misconfiguration with Trivy. The tree is the same on both platforms.
+7. Attach the SBOM and both reports to that platform's image digest.
 
 Once, in `publish`:
 
-7. Merge the per-platform digests into a staging tag, `sha-<commit>`.
-8. Scan the source tree for secrets and misconfiguration with Trivy.
+8. Merge the per-platform digests into a staging tag, `sha-<commit>`.
 9. Sign the manifest and every platform image with keyless Cosign, then verify.
 10. Claim the release number as a git tag.
 11. Promote the manifest digest to `v<VERSION>-<build>` and `latest`.
 12. Mirror to GHCR and sign the mirror recursively.
 
-Step 6 and steps 9 through 12 only run on a push to `main`. A `workflow_dispatch` run builds, scans, and merges, then stops.
+Step 7 and steps 9 through 12 only run on a push to `main`. A `workflow_dispatch` run builds, scans, and merges, then stops.
 
-Every scan, including step 8 and the weekly re-scan, runs inside the `ghcr.io/jaturu/scanners:slim` image, which carries Trivy, Grype and their databases and is rebuilt nightly from its own repository. Each job pulls the floating tag once, logs both tool versions, and runs every scan in that job against the resolved digest through `scripts/scan.sh`, so nothing downloads a database at run time. The slim variant leaves out the Trivy Java database, which this image has no use for. Grype refuses a database older than five days, so if the nightly build stops, releases and the re-scan fail rather than scan against stale data.
+Every scan, including the weekly re-scan, runs inside the `ghcr.io/jaturu/scanners:slim` image, which carries Trivy, Grype and their databases and is rebuilt nightly from its own repository. Each job pulls the floating tag once, logs both tool versions, and runs every scan in that job against the resolved digest through `scripts/scan.sh`, so nothing downloads a database at run time. The slim variant leaves out the Trivy Java database, which this image has no use for. Grype refuses a database older than five days, so if the nightly build stops, releases and the re-scan fail rather than scan against stale data.
 
 ---
 
