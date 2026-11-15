@@ -146,6 +146,11 @@ jobs:
           scripts/scan.sh trivy image --image-src remote --format table \
             --severity HIGH,CRITICAL --exit-code 1 "${{ env.IMAGE }}@${IMAGE_DIGEST}"
 
+      # The source tree is the same on every platform, so scan it once.
+      - name: Trivy source scan (secrets and misconfig)
+        if: matrix.platform == 'linux/amd64'
+        run: scripts/scan.sh trivy fs --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+
       # --- Attach to this platform's digest, where tooling looks ---
 
       - name: Install oras
@@ -295,16 +300,6 @@ jobs:
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532  # v4.1.3
         with:
           cosign-release: v3.1.2
-
-      - name: Pull the scanners image
-        run: |
-          docker pull --quiet "$SCANNERS_IMAGE"
-          ref="$(docker inspect --format '{{index .RepoDigests 0}}' "$SCANNERS_IMAGE")"
-          echo "SCANNERS_REF=${ref}" >> "$GITHUB_ENV"
-          SCANNERS_REF="$ref" scripts/scan.sh sh -c 'trivy --version && grype version'
-
-      - name: Trivy source scan (secrets and misconfig)
-        run: scripts/scan.sh trivy fs --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
 
       # Digest-scoped work runs first. Nothing below publishes a tag, so a
       # failure here leaves no release behind and the run is safe to retry.
