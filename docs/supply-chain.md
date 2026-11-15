@@ -63,7 +63,7 @@ Once, in `publish`:
 
 Step 6 and steps 9 through 12 only run on a push to `main`. A `workflow_dispatch` run builds, scans, and merges, then stops.
 
-Steps 4 and 5 restore the Grype and Trivy databases from the Actions cache under a key that changes daily. The `scanner-db` workflow downloads both databases every morning and saves them under that day's key, so builds and the weekly re-scan restore a ready database instead of downloading and migrating one. On a day that run has not happened yet, the first build saves the cache itself.
+Every scan, including step 8 and the weekly re-scan, runs inside the `ghcr.io/jaturu/scanners:slim` image, which carries Trivy, Grype and their databases and is rebuilt nightly from its own repository. Each job pulls the floating tag once, logs both tool versions, and runs every scan in that job against the resolved digest through `scripts/scan.sh`, so nothing downloads a database at run time. The slim variant leaves out the Trivy Java database, which this image has no use for. Grype refuses a database older than five days, so if the nightly build stops, releases and the re-scan fail rather than scan against stale data.
 
 ---
 
