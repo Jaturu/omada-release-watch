@@ -24,6 +24,8 @@ concurrency:
 env:
   IMAGE: docker.io/jaturu/omada-release-watch
   GHCR_IMAGE: ghcr.io/jaturu/omada-release-watch
+  # Trivy and Grype with databases baked in, rebuilt nightly. Slim omits the Java DB.
+  SCANNERS_IMAGE: ghcr.io/jaturu/scanners:slim
 
 jobs:
   # Runs once per platform, on a runner of that architecture.
@@ -99,29 +101,12 @@ jobs:
           echo "Index pushed:   ${{ steps.build.outputs.digest }}"
           echo "Image manifest: ${img}"
 
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567  # v0.3.1
-        with:
-          version: v0.72.0
-
-      # Keys match the scanner-db workflow, which warms both caches daily.
-      - name: Scanner cache key (daily)
-        id: dbday
-        run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Trivy database
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ~/.cache/trivy
-          key: trivy-db-${{ steps.dbday.outputs.day }}
-          restore-keys: trivy-db-
-
-      - name: Cache Grype database
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ~/.cache/grype/db
-          key: grype-db-v0.116.0-${{ steps.dbday.outputs.day }}
-          restore-keys: grype-db-v0.116.0-
+      - name: Pull the scanners image
+        run: |
+          docker pull --quiet "$SCANNERS_IMAGE"
+          ref="$(docker inspect --format '{{index .RepoDigests 0}}' "$SCANNERS_IMAGE")"
+          echo "SCANNERS_REF=${ref}" >> "$GITHUB_ENV"
+          SCANNERS_REF="$ref" scripts/scan.sh sh -c 'trivy --version && grype version'
 
       # --- SBOM (Syft), scanned natively on this arch ---
 
@@ -145,26 +130,21 @@ jobs:
       # Report and gate in one pass: ignored findings stay in the
       # report under ignoredMatches, tagged with the rule that hid them.
       - name: Grype vulnerability scan (report and gate)
-        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
-        with:
-          sbom: sbom.cyclonedx.${{ env.SLUG }}.json
-          config: .grype-ignore.yaml
-          output-format: json
-          output-file: grype-report.${{ env.SLUG }}.json
-          severity-cutoff: high
-          grype-version: v0.116.0
-          fail-build: true
+        run: |
+          scripts/scan.sh grype "sbom:sbom.cyclonedx.${SLUG}.json" \
+            --config .grype-ignore.yaml --output json \
+            --file "grype-report.${SLUG}.json" --fail-on high
 
       - name: Trivy image scan (full report)
         run: |
-          trivy image --format json --output "trivy-report.${SLUG}.json" \
-            "${{ env.IMAGE }}@${IMAGE_DIGEST}"
+          scripts/scan.sh trivy image --image-src remote --format json \
+            --output "trivy-report.${SLUG}.json" "${{ env.IMAGE }}@${IMAGE_DIGEST}"
           echo "Trivy report written to trivy-report.${SLUG}.json"
 
       - name: Trivy image scan (blocking gate)
         run: |
-          trivy image --format table --severity HIGH,CRITICAL --exit-code 1 \
-            "${{ env.IMAGE }}@${IMAGE_DIGEST}"
+          scripts/scan.sh trivy image --image-src remote --format table \
+            --severity HIGH,CRITICAL --exit-code 1 "${{ env.IMAGE }}@${IMAGE_DIGEST}"
 
       # --- Attach to this platform's digest, where tooling looks ---
 
@@ -306,23 +286,6 @@ jobs:
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
           echo "Manifest digest: ${digest}"
 
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567  # v0.3.1
-        with:
-          version: v0.72.0
-
-      # Keys match the scanner-db workflow, which warms both caches daily.
-      - name: Scanner cache key (daily)
-        id: dbday
-        run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Trivy database
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ~/.cache/trivy
-          key: trivy-db-${{ steps.dbday.outputs.day }}
-          restore-keys: trivy-db-
-
       - name: Install crane
         uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b  # v0.7
         with:
@@ -333,8 +296,15 @@ jobs:
         with:
           cosign-release: v3.1.2
 
+      - name: Pull the scanners image
+        run: |
+          docker pull --quiet "$SCANNERS_IMAGE"
+          ref="$(docker inspect --format '{{index .RepoDigests 0}}' "$SCANNERS_IMAGE")"
+          echo "SCANNERS_REF=${ref}" >> "$GITHUB_ENV"
+          SCANNERS_REF="$ref" scripts/scan.sh sh -c 'trivy --version && grype version'
+
       - name: Trivy source scan (secrets and misconfig)
-        run: trivy fs --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+        run: scripts/scan.sh trivy fs --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
 
       # Digest-scoped work runs first. Nothing below publishes a tag, so a
       # failure here leaves no release behind and the run is safe to retry.
