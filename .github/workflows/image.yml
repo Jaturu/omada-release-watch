@@ -83,6 +83,8 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          # A cached apk upgrade layer misses Alpine security fixes.
+          no-cache-filters: runtime
 
       # Attestations make the pushed object a per-platform index. Everything
       # that addresses the image itself needs the manifest inside it.

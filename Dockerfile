@@ -15,7 +15,7 @@ RUN cd /usr/local/lib/python3.13 \
         lib-dynload/readline.* lib-dynload/_tkinter.* \
     && find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
-FROM alpine:3.24
+FROM alpine:3.24 AS runtime
 
 # Only the libraries the interpreter and the pinned wheels load at runtime.
 RUN apk upgrade --no-cache \
